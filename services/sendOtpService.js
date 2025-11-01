@@ -4,6 +4,7 @@ import OTP from "../models/otpModel.js";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendOtpService(email) {
+  console.log(email);
   try {
     if (!email || !email.includes("@")) {
       return { success: false, message: "Valid email required." };

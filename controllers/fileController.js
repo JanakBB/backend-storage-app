@@ -45,7 +45,6 @@ export const getFile = async (req, res) => {
     key: `${id}${fileData.extension}`,
     filename: fileData.name,
   });
-  console.log(fileUrl);
 
   return res.redirect(fileUrl);
 };

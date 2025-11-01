@@ -85,6 +85,8 @@ export const deleteDirectory = async (req, res, next) => {
       userId: req.user._id,
     }).lean();
 
+    console.log(directoryData);
+
     if (!directoryData) {
       return res.status(404).json({ error: "Directory not found!" });
     }

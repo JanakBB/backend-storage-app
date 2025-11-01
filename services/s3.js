@@ -9,19 +9,21 @@ import {
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const s3Client = new S3Client({
-  profile: "nodejs",
-  region: "us-east-1",
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_KEY,
+  },
 });
 
 export const createUploadSignedUrl = async ({ key, contentType }) => {
   const command = new PutObjectCommand({
-    Bucket: "codebookpro-storage-app",
+    Bucket: "codebookpro",
     Key: key,
     ContentType: contentType,
   });
 
   const url = await getSignedUrl(s3Client, command, {
-    expiresIn: 300,
+    expiresIn: 3600,
     signedHeaders: new Set(["content-type"]),
   });
 
@@ -34,7 +36,7 @@ export const createGetSignedUrl = async ({
   filename,
 }) => {
   const command = new GetObjectCommand({
-    Bucket: "codebookpro-storage-app",
+    Bucket: "codebookpro",
     Key: key,
     ResponseContentDisposition: `${download ? "attachment" : "inline"}; filename=${encodeURIComponent(filename)}`,
   });
@@ -48,7 +50,7 @@ export const createGetSignedUrl = async ({
 
 export const getS3FileMetaData = async (key) => {
   const command = new HeadObjectCommand({
-    Bucket: "codebookpro-storage-app",
+    Bucket: "codebookpro",
     Key: key,
   });
   return await s3Client.send(command);
@@ -56,7 +58,7 @@ export const getS3FileMetaData = async (key) => {
 
 export const deleteS3File = async (key) => {
   const command = new DeleteObjectCommand({
-    Bucket: "codebookpro-storage-app",
+    Bucket: "codebookpro",
     Key: key,
   });
   return await s3Client.send(command);
@@ -64,7 +66,7 @@ export const deleteS3File = async (key) => {
 
 export const deleteS3Files = async (keys) => {
   const command = new DeleteObjectsCommand({
-    Bucket: "codebookpro-storage-app",
+    Bucket: "codebookpro",
     Delete: {
       Objects: keys,
       Quiet: false, // set true to skip individual delete responses
