@@ -93,7 +93,7 @@ export const deleteFile = async (req, res, next) => {
   }
 };
 
-export const uploadInitiate = async (req, res) => {
+export const uploadInitiate = async (req, res, next) => {
   const parentDirId = req.body.parentDirId || req.user.rootDirId;
   try {
     const parentDirData = await Directory.findOne({
