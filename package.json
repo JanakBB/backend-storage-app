@@ -7,7 +7,7 @@
     "dev": "node --watch --no-deprecation app.js",
     "start": "node --no-deprecation app.js",
     "setup": "node config/setup.js",
-    "build": "node build.js"
+    "build": "npm i"
   },
   "keywords": [],
   "author": "",
