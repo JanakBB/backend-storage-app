@@ -85,51 +85,59 @@ export const deleteDirectory = async (req, res, next) => {
       userId: req.user._id,
     }).lean();
 
-    console.log(directoryData);
-
     if (!directoryData) {
       return res.status(404).json({ error: "Directory not found!" });
     }
 
-    async function getDirectoryContents(id) {
-      let files = await File.find({ parentDirId: id })
-        .select("extension")
+    async function getDirectoryContents(dirId) {
+      let files = await File.find({ parentDirId: dirId })
+        .select("_id extension")
         .lean();
-      let directories = await Directory.find({ parentDirId: id })
+      let directories = await Directory.find({ parentDirId: dirId })
         .select("_id")
         .lean();
+
+      // Initialize with current directory
+      let allDirectories = [{ _id: dirId }];
 
       for (const { _id } of directories) {
         const { files: childFiles, directories: childDirectories } =
           await getDirectoryContents(_id);
 
         files = [...files, ...childFiles];
-        directories = [...directories, ...childDirectories];
+        allDirectories = [...allDirectories, ...childDirectories];
       }
 
-      return { files, directories };
+      return { files, directories: allDirectories };
     }
 
     const { files, directories } = await getDirectoryContents(id);
 
-    const keys = files.map(({ _id, extension }) => ({
-      Key: `${_id}${extension}`,
-    }));
+    // Delete files from S3 if there are any
+    if (files.length > 0) {
+      const keys = files.map(({ _id, extension }) => ({
+        Key: `${_id}${extension}`,
+      }));
+      await deleteS3Files(keys);
+    }
 
-    console.log(keys);
-    await deleteS3Files(keys);
+    // Delete all files
+    if (files.length > 0) {
+      await File.deleteMany({
+        _id: { $in: files.map(({ _id }) => _id) },
+      });
+    }
 
-    await File.deleteMany({
-      _id: { $in: files.map(({ _id }) => _id) },
-    });
-
+    // Delete all directories (including empty ones)
     await Directory.deleteMany({
-      _id: { $in: [...directories.map(({ _id }) => _id), id] },
+      _id: { $in: directories.map(({ _id }) => _id) },
     });
 
+    // Update parent directory size
     await updateDirectoriesSize(directoryData.parentDirId, -directoryData.size);
+
+    return res.json({ message: "Directory deleted successfully" });
   } catch (err) {
     next(err);
   }
-  return res.json({ message: "Files deleted successfully" });
 };

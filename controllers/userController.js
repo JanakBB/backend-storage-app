@@ -15,7 +15,6 @@ export const register = async (req, res, next) => {
   }
 
   const { name, email, password, otp } = data;
-  console.log(otp);
   const otpRecord = await OTP.findOne({ email, otp });
 
   if (!otpRecord) {

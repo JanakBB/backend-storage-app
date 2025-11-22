@@ -25,9 +25,6 @@ export const sendOtp = async (req, res, next) => {
 export const verifyOtp = async (req, res, next) => {
   const { success, data, error } = otpSchema.safeParse(req.body);
 
-  console.log(req.body);
-  console.log(data);
-
   if (!success) {
     return res.status(400).json({ error: "Invalid OTP" });
   }
@@ -64,11 +61,9 @@ export const loginWithGoogle = async (req, res, next) => {
         RETURN: [],
       }
     );
-    console.log(allSessions);
 
     if (allSessions.total >= 2) {
       const delData = await redisClient.del(allSessions.documents[0].id);
-      console.log(delData);
     }
 
     if (!user.picture.includes("googleusercontent.com")) {

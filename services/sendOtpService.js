@@ -4,7 +4,6 @@ import OTP from "../models/otpModel.js";
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendOtpService(email) {
-  console.log(email);
   try {
     if (!email || !email.includes("@")) {
       return { success: false, message: "Valid email required." };
@@ -17,7 +16,6 @@ export async function sendOtpService(email) {
       { otp, createdAt: new Date(), expiresAt },
       { upsert: true, new: true } // up = update, sert = insert, new: true = returns updated value.
     );
-    console.log(`Stored OTP for ${email}`);
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; line-height: 1.4;">
@@ -45,12 +43,6 @@ export async function sendOtpService(email) {
         message: `Send failed: ${sendResult.error[0].message}`,
       };
     }
-
-    console.log(
-      `Resend Success for ${email}: ID=${sendResult.id}, Status=${sendResult.status || "unknown"}`
-    );
-
-    console.log(`=== DEV OTP FOR ${email}: ${otp} (expires in 10 min) ===`);
 
     return {
       success: true,

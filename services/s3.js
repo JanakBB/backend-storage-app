@@ -18,7 +18,7 @@ const s3Client = new S3Client({
 
 export const createUploadSignedUrl = async ({ key, contentType }) => {
   const command = new PutObjectCommand({
-    Bucket: "codebookpro",
+    Bucket: "palomacoding",
     Key: key,
     ContentType: contentType,
   });
@@ -37,7 +37,7 @@ export const createGetSignedUrl = async ({
   filename,
 }) => {
   const command = new GetObjectCommand({
-    Bucket: "codebookpro",
+    Bucket: "palomacoding",
     Key: key,
     ResponseContentDisposition: `${download ? "attachment" : "inline"}; filename=${encodeURIComponent(filename)}`,
   });
@@ -51,7 +51,7 @@ export const createGetSignedUrl = async ({
 
 export const getS3FileMetaData = async (key) => {
   const command = new HeadObjectCommand({
-    Bucket: "codebookpro",
+    Bucket: "palomacoding",
     Key: key,
   });
   return await s3Client.send(command);
@@ -59,7 +59,7 @@ export const getS3FileMetaData = async (key) => {
 
 export const deleteS3File = async (key) => {
   const command = new DeleteObjectCommand({
-    Bucket: "codebookpro",
+    Bucket: "palomacoding",
     Key: key,
   });
   return await s3Client.send(command);
@@ -67,7 +67,7 @@ export const deleteS3File = async (key) => {
 
 export const deleteS3Files = async (keys) => {
   const command = new DeleteObjectsCommand({
-    Bucket: "codebookpro",
+    Bucket: "palomacoding",
     Delete: {
       Objects: keys,
       Quiet: false, // set true to skip individual delete responses
