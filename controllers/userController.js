@@ -145,7 +145,25 @@ export const getAllUsers = async (req, res) => {
 
 export const getCurrentUser = async (req, res) => {
   const user = await User.findById(req.user._id).lean();
+
+
+  
+  // Check if user exists
+  if (!user) {
+    return res.status(404).json({ error: "User not found" });
+  }
+
+  // Check if rootDirId exists
+  if (!user.rootDirId) {
+    return res.status(404).json({ error: "Root directory not found for user" });
+  }
+
   const rootDir = await Directory.findById(user.rootDirId).lean();
+
+  // Check if root directory exists
+  if (!rootDir) {
+    return res.status(404).json({ error: "Root directory not found" });
+  }
   res.status(200).json({
     name: user.name,
     email: user.email,
