@@ -15,15 +15,22 @@ const PORT = process.env.PORT || 4000;
 const app = express();
 app.use(cookieParser(process.env.SESSION_SECRET));
 app.use(express.json());
+const whitelist = ["CLIENT_URL_1", "CLIENT_URL_2"];
 app.use(
   cors({
-    origin: process.env.CLIENT_URL,
+    origin: function (origin, callback) {
+      if (whitelist.indexOf(origin) !== -1 || !origin) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
     credentials: true,
   })
 );
 
 app.get("/", (req, res) => {
-  res.json({message: "Hello from StorageApp"});
+  res.json({ message: "Hello from StorageApp" });
 });
 
 app.use("/directory", checkAuth, directoryRoutes);
