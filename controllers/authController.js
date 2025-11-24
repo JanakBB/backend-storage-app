@@ -7,10 +7,6 @@ import { sendOtpService } from "../services/sendOtpService.js";
 import redisClient from "../config/redis.js";
 import { otpSchema } from "../validators/authSchema.js";
 
-import { Types } from "mongoose";
-import redisClient from "../config/redis.js";
-import Directory from "../models/directoryModel.js";
-
 export const sendOtp = async (req, res, next) => {
   const { email } = req.body;
   const resData = await sendOtpService(email);
@@ -182,10 +178,9 @@ export const githubLoginStart = (req, res) => {
       client_id: process.env.GITHUB_CLIENT_ID,
       redirect_uri: "https://api.palomacoding.xyz/auth/github/callback",
       scope: "read:user user:email",
-      state: crypto.randomUUID(), // protects against CSRF
+      state: crypto.randomUUID(),
     }
   ).toString()}`;
-
   res.redirect(githubAuthUrl);
 };
 
