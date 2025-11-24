@@ -15,19 +15,40 @@ const PORT = process.env.PORT || 4000;
 const app = express();
 app.use(cookieParser(process.env.SESSION_SECRET));
 app.use(express.json());
-const whitelist = [process.env.CLIENT_URL_1, process.env.CLIENT_URL_2];
+
+const whitelist = [
+  process.env.CLIENT_URL_1, // https://www.palomacoding.xyz
+  process.env.CLIENT_URL_2, // https://palomacoding.xyz
+  "https://accounts.google.com", // ← Critical for Google login
+];
+
 app.use(
   cors({
     origin: function (origin, callback) {
-      if (whitelist.indexOf(origin) !== -1 || !origin) {
+      // Allow requests with no origin OR origin in whitelist
+      if (!origin || origin === "null" || whitelist.includes(origin)) {
         callback(null, true);
       } else {
         callback(new Error("Not allowed by CORS"));
       }
     },
-    credentials: true,
+    credentials: true, // This sends cookies (sid)
   })
 );
+
+// const whitelist = [process.env.CLIENT_URL_1, process.env.CLIENT_URL_2];
+// app.use(
+//   cors({
+//     origin: function (origin, callback) {
+//       if (whitelist.indexOf(origin) !== -1 || !origin) {
+//         callback(null, true);
+//       } else {
+//         callback(new Error("Not allowed by CORS"));
+//       }
+//     },
+//     credentials: true,
+//   })
+// );
 
 app.get("/", (req, res) => {
   res.json({ message: "Hello from StorageApp" });
