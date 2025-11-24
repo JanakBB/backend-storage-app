@@ -48,6 +48,11 @@ const userSchema = new Schema(
       type: Boolean,
       default: false,
     },
+    githubId: {
+      type: Number,
+      unique: true,
+      sparse: true, // ← allows null for non-GitHub users
+    },
   },
   {
     strict: "throw",

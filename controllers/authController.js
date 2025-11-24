@@ -7,6 +7,10 @@ import { sendOtpService } from "../services/sendOtpService.js";
 import redisClient from "../config/redis.js";
 import { otpSchema } from "../validators/authSchema.js";
 
+import { Types } from "mongoose";
+import redisClient from "../config/redis.js";
+import Directory from "../models/directoryModel.js";
+
 export const sendOtp = async (req, res, next) => {
   const { email } = req.body;
   const resData = await sendOtpService(email);
@@ -166,5 +170,177 @@ export const loginWithGoogle = async (req, res, next) => {
   } catch (err) {
     mongooseSession.abortTransaction();
     next(err);
+  }
+};
+
+// ────────────────────── GITHUB LOGIN START ──────────────────────
+// Route: GET /auth/github
+// When user clicks "Sign in with GitHub", this runs → redirects to GitHub
+export const githubLoginStart = (req, res) => {
+  const githubAuthUrl = `https://github.com/login/oauth/authorize?${new URLSearchParams(
+    {
+      client_id: process.env.GITHUB_CLIENT_ID,
+      redirect_uri: "https://api.palomacoding.xyz/auth/github/callback",
+      scope: "read:user user:email",
+      state: crypto.randomUUID(), // protects against CSRF
+    }
+  ).toString()}`;
+
+  res.redirect(githubAuthUrl);
+};
+
+// ────────────────────── GITHUB CALLBACK ──────────────────────
+// Route: GET /auth/github/callback?code=abc123&state=xyz
+// GitHub redirects here after user approves login
+export const githubCallback = async (req, res) => {
+  const { code, state } = req.query;
+
+  // Basic validation
+  if (!code) {
+    return res.redirect(
+      "https://www.palomacoding.xyz/login?error=github_no_code"
+    );
+  }
+
+  try {
+    // 1. Exchange code → access_token
+    const tokenResponse = await fetch(
+      "https://github.com/login/oauth/access_token",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json",
+          "User-Agent": "PalomaCoding",
+        },
+        body: JSON.stringify({
+          client_id: process.env.GITHUB_CLIENT_ID,
+          client_secret: process.env.GITHUB_CLIENT_SECRET,
+          code,
+        }),
+      }
+    );
+
+    const tokenData = await tokenResponse.json();
+    if (tokenData.error) {
+      throw new Error(
+        tokenData.error_description || "GitHub token exchange failed"
+      );
+    }
+    const { access_token } = tokenData;
+
+    // 2. Get user profile + verified primary email
+    const [profileRes, emailRes] = await Promise.all([
+      fetch("https://api.github.com/user", {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          "User-Agent": "PalomaCoding",
+        },
+      }),
+      fetch("https://api.github.com/user/emails", {
+        headers: {
+          Authorization: `Bearer ${access_token}`,
+          "User-Agent": "PalomaCoding",
+        },
+      }),
+    ]);
+
+    const githubUser = await profileRes.json();
+    const emails = await emailRes.json();
+
+    const primaryEmailObj = emails.find((e) => e.primary && e.verified);
+    if (!primaryEmailObj) {
+      return res.redirect(
+        "https://www.palomacoding.xyz/login?error=no_verified_email"
+      );
+    }
+    const email = primaryEmailObj.email;
+
+    // 3. Find or create user (exactly like your Google flow)
+    let user = await User.findOne({
+      $or: [{ email }, { githubId: githubUser.id }],
+    });
+
+    if (user) {
+      // Existing user → update GitHub info
+      user.githubId = githubUser.id;
+      if (!user.picture?.includes("github")) {
+        user.picture = githubUser.avatar_url + "&s=200";
+      }
+      if (!user.name) user.name = githubUser.name || githubUser.login;
+      await user.save();
+    } else {
+      // New user → create with transaction (same as Google)
+      const mongooseSession = await mongoose.startSession();
+      try {
+        const rootDirId = new Types.ObjectId();
+        const userId = new Types.ObjectId();
+
+        mongooseSession.startTransaction();
+
+        await Directory.create(
+          [
+            {
+              _id: rootDirId,
+              name: `root-${email}`,
+              parentDirId: null,
+              userId,
+              size: 0,
+            },
+          ],
+          { session: mongooseSession }
+        );
+
+        await User.create(
+          [
+            {
+              _id: userId,
+              name: githubUser.name || githubUser.login,
+              email,
+              picture: githubUser.avatar_url + "&s=200",
+              rootDirId,
+              githubId: githubUser.id,
+              maxStorageInBytes: 15 * 1024 ** 3,
+              role: "User",
+            },
+          ],
+          { session: mongooseSession }
+        );
+
+        await mongooseSession.commitTransaction();
+        user = await User.findById(userId);
+      } catch (err) {
+        await mongooseSession.abortTransaction();
+        throw err;
+      } finally {
+        mongooseSession.endSession();
+      }
+    }
+
+    // 4. Create Redis session + signed cookie (exact copy of Google login)
+    const sessionId = crypto.randomUUID();
+    const redisKey = `session:${sessionId}`;
+
+    await redisClient.json.set(redisKey, "$", {
+      userId: user._id,
+      rootDirId: user.rootDirId,
+    });
+
+    const sessionExpiryTime = 60 * 1000 * 60 * 24 * 7; // 7 days
+    await redisClient.expire(redisKey, sessionExpiryTime / 1000);
+
+    res.cookie("sid", sessionId, {
+      httpOnly: true,
+      signed: true,
+      sameSite: "none",
+      secure: true,
+      maxAge: sessionExpiryTime,
+    });
+
+    // 5. Success → go to dashboard
+    res.redirect("https://www.palomacoding.xyz/dashboard");
+  } catch (err) {
+    console.error("GitHub Login Failed:", err.message);
+    res.redirect("https://www.palomacoding.xyz/login?error=github_failed");
   }
 };
