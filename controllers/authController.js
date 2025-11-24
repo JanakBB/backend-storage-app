@@ -1,11 +1,12 @@
 import mongoose, { Types } from "mongoose";
 import OTP from "../models/otpModel.js";
-import User from "../models/userModel.js";
+import User from "../models/directoryModel.js";
 import Directory from "../models/directoryModel.js";
 import { verifyIdTokenTakeAnyName } from "../services/googleAuthService.js";
 import { sendOtpService } from "../services/sendOtpService.js";
 import redisClient from "../config/redis.js";
 import { otpSchema } from "../validators/authSchema.js";
+import fetch from "node-fetch"; // ← ADD THIS LINE
 
 export const sendOtp = async (req, res, next) => {
   const { email } = req.body;
