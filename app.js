@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 4000;
 const app = express();
 app.use(cookieParser(process.env.SESSION_SECRET));
 app.use(express.json());
-const whitelist = ["CLIENT_URL_1", "CLIENT_URL_2"];
+const whitelist = [process.env.CLIENT_URL_1, process.env.CLIENT_URL_2];
 app.use(
   cors({
     origin: function (origin, callback) {
