@@ -170,18 +170,15 @@ export const loginWithGoogle = async (req, res, next) => {
 };
 
 // ────────────────────── GITHUB LOGIN START ──────────────────────
-// Route: GET /auth/github
-// When user clicks "Sign in with GitHub", this runs → redirects to GitHub
 export const githubLoginStart = (req, res) => {
-  const githubAuthUrl = `https://github.com/login/oauth/authorize?${new URLSearchParams(
-    {
-      client_id: process.env.GITHUB_CLIENT_ID,
-      redirect_uri: "https://api.palomacoding.xyz/auth/github/callback",
-      scope: "read:user user:email",
-      state: crypto.randomUUID(),
-    }
-  ).toString()}`;
-  res.redirect(githubAuthUrl);
+  const params = new URLSearchParams({
+    client_id: process.env.GITHUB_CLIENT_ID,
+    redirect_uri: "https://api.palomacoding.xyz/auth/github/callback",
+    scope: "read:user user:email",
+    state: crypto.randomUUID(),
+  });
+
+  res.redirect(`https://github.com/login/oauth/authorize?${params.toString()}`);
 };
 
 // ────────────────────── GITHUB CALLBACK ──────────────────────
