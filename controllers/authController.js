@@ -331,7 +331,7 @@ export const githubCallback = async (req, res) => {
     });
 
     // 5. Success → go to dashboard
-    res.redirect("https://www.palomacoding.xyz/dashboard");
+    res.redirect("https://www.palomacoding.xyz/");
   } catch (err) {
     console.error("GitHub Login Failed:", err.message);
     res.redirect("https://www.palomacoding.xyz/login?error=github_failed");
