@@ -339,9 +339,9 @@ export const githubCallback = async (req, res) => {
       console.warn("GitHub: Session not created due to Redis unavailability");
     }
 
-    res.redirect("https://www.palomacoding.xyz/");
+    res.redirect("https://palomacoding.xyz/");
   } catch (err) {
     console.error("GitHub Login Failed:", err.message);
-    res.redirect("https://www.palomacoding.xyz/login?error=github_failed");
+    res.redirect("https://palomacoding.xyz/login?error=github_failed");
   }
 };
