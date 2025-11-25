@@ -22,14 +22,6 @@ const whitelist = [
   "https://accounts.google.com", // ← Critical for Google login
 ];
 
-// Only for development - remove in production
-app.use(
-  cors({
-    origin: true, // Allow all origins in development
-    credentials: true,
-  })
-);
-
 app.use(
   cors({
     origin: function (origin, callback) {
