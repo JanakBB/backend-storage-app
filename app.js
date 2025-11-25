@@ -52,38 +52,17 @@ async function initializeApp() {
     app.use(cookieParser(process.env.SESSION_SECRET));
     app.use(express.json());
 
-    // TEMPORARY - Allow all origins to test if CORS is the issue
+    // SIMPLE CORS - This usually fixes all issues
     app.use(
-      cors({
-        origin: true, // This allows ALL origins
-        credentials: true,
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"], // Make sure PATCH is here
-        allowedHeaders: [
-          "Content-Type",
-          "Authorization",
-          "X-Requested-With",
-          "x-requested-with",
-        ],
-      })
-    );
-
-    // ADD THIS - Handle preflight requests explicitly
-    app.options(
-      "*",
       cors({
         origin: true,
         credentials: true,
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-        allowedHeaders: [
-          "Content-Type",
-          "Authorization",
-          "X-Requested-With",
-          "x-requested-with",
-        ],
       })
     );
 
-    console.log("🔧 TEMPORARY: CORS set to allow ALL origins and ALL methods");
+    app.options("*", cors()); // Handle preflight for all routes
+
+    console.log("🔧 CORS set to allow ALL origins with simple configuration");
 
     // // CORS configuration
     // // Update your whitelist to include your API domain
