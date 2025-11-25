@@ -1,8 +1,8 @@
 import { createClient } from "redis";
 
-let redisClient;
+let redisClient = null;
+let isInitializing = false;
 
-// Create Redis client without immediate connection
 const createRedisClient = () => {
   return createClient({
     username: "default",
@@ -14,9 +14,11 @@ const createRedisClient = () => {
   });
 };
 
-// Initialize Redis connection with retry logic
 export const initializeRedis = async () => {
   try {
+    if (redisClient || isInitializing) return redisClient;
+
+    isInitializing = true;
     redisClient = createRedisClient();
 
     redisClient.on("error", (err) => {
@@ -28,8 +30,10 @@ export const initializeRedis = async () => {
     });
 
     await redisClient.connect();
+    isInitializing = false;
     return redisClient;
   } catch (error) {
+    isInitializing = false;
     console.error("❌ Redis connection failed:", error);
     throw error;
   }
@@ -37,11 +41,11 @@ export const initializeRedis = async () => {
 
 export const getRedisClient = () => {
   if (!redisClient) {
-    throw new Error(
-      "Redis client not initialized. Call initializeRedis() first."
-    );
+    console.warn("⚠️ Redis client not initialized yet");
+    return null;
   }
   return redisClient;
 };
 
+// For direct default export with safety
 export default getRedisClient;

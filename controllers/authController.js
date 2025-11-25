@@ -1,16 +1,32 @@
 import mongoose, { Types } from "mongoose";
-import crypto from "crypto"; // ← ADD THIS MISSING IMPORT
+import crypto from "crypto";
 import OTP from "../models/otpModel.js";
 import User from "../models/userModel.js";
 import Directory from "../models/directoryModel.js";
 import { verifyIdTokenTakeAnyName } from "../services/googleAuthService.js";
 import { sendOtpService } from "../services/sendOtpService.js";
-// import redisClient from "../config/redis.js";
-import getRedisClient from "../config/redis.js";
+import { getRedisClient } from "../config/redis.js";
 import { otpSchema } from "../validators/authSchema.js";
 import fetch from "node-fetch";
 
-const redisClient = getRedisClient();
+// Don't call getRedisClient() here - it's too early!
+// const redisClient = getRedisClient(); // ← REMOVE THIS LINE
+
+// Helper function to safely use Redis
+const safeRedis = async (operation) => {
+  const redisClient = getRedisClient();
+  if (!redisClient) {
+    console.warn("Redis not available, skipping Redis operation");
+    return null;
+  }
+  try {
+    return await operation(redisClient);
+  } catch (error) {
+    console.warn("Redis operation failed:", error.message);
+    return null;
+  }
+};
+
 export const sendOtp = async (req, res, next) => {
   const { email } = req.body;
   const resData = await sendOtpService(email);
@@ -54,25 +70,25 @@ export const loginWithGoogle = async (req, res, next) => {
         });
       }
 
-      // Clean up old sessions if needed
-      const allSessions = await redisClient.ft.search(
-        "userIdIdx",
-        `@userId:{${user.id}}`,
-        {
-          RETURN: [],
-        }
-      );
+      // Safe Redis session cleanup
+      await safeRedis(async (redisClient) => {
+        const allSessions = await redisClient.ft.search(
+          "userIdIdx",
+          `@userId:{${user.id}}`,
+          { RETURN: [] }
+        );
 
-      if (allSessions.total >= 2) {
-        const delData = await redisClient.del(allSessions.documents[0].id);
-      }
+        if (allSessions.total >= 2) {
+          await redisClient.del(allSessions.documents[0].id);
+        }
+      });
 
       if (!user.picture?.includes("googleusercontent.com")) {
         user.picture = picture;
         await user.save();
       }
     } else {
-      // Create new user - FIXED: Use create() instead of insertOne()
+      // Create new user
       const mongooseSession = await mongoose.startSession();
 
       try {
@@ -81,7 +97,6 @@ export const loginWithGoogle = async (req, res, next) => {
 
         await mongooseSession.startTransaction();
 
-        // FIXED: Use create() instead of insertOne()
         await Directory.create(
           [
             {
@@ -95,7 +110,6 @@ export const loginWithGoogle = async (req, res, next) => {
           { session: mongooseSession }
         );
 
-        // FIXED: Use create() instead of insertOne()
         await User.create(
           [
             {
@@ -121,25 +135,34 @@ export const loginWithGoogle = async (req, res, next) => {
       }
     }
 
-    // Create session for both new and existing users
-    const sessionId = crypto.randomUUID(); // ← THIS WAS CRASHING WITHOUT CRYPTO IMPORT
-    const redisKey = `session:${sessionId}`;
+    // Create session with safe Redis handling
+    const sessionResult = await safeRedis(async (redisClient) => {
+      const sessionId = crypto.randomUUID();
+      const redisKey = `session:${sessionId}`;
 
-    await redisClient.json.set(redisKey, "$", {
-      userId: user._id.toString(),
-      rootDirId: user.rootDirId.toString(),
+      await redisClient.json.set(redisKey, "$", {
+        userId: user._id.toString(),
+        rootDirId: user.rootDirId.toString(),
+      });
+
+      const sessionExpiryTime = 60 * 1000 * 60 * 24 * 7; // 7 days
+      await redisClient.expire(redisKey, sessionExpiryTime / 1000);
+
+      return { sessionId, sessionExpiryTime };
     });
 
-    const sessionExpiryTime = 60 * 1000 * 60 * 24 * 7; // 7 days
-    await redisClient.expire(redisKey, sessionExpiryTime / 1000);
-
-    res.cookie("sid", sessionId, {
-      httpOnly: true,
-      signed: true,
-      sameSite: "none",
-      secure: true,
-      maxAge: sessionExpiryTime,
-    });
+    if (sessionResult) {
+      const { sessionId, sessionExpiryTime } = sessionResult;
+      res.cookie("sid", sessionId, {
+        httpOnly: true,
+        signed: true,
+        sameSite: "none",
+        secure: true,
+        maxAge: sessionExpiryTime,
+      });
+    } else {
+      console.warn("Session not created due to Redis unavailability");
+    }
 
     return res.json({
       message: user ? "logged in" : "account created and logged in",
@@ -156,7 +179,7 @@ export const loginWithGoogle = async (req, res, next) => {
   }
 };
 
-// GitHub OAuth functions (keep as is since they're working)
+// GitHub OAuth functions
 export const githubLoginStart = (req, res) => {
   const params = new URLSearchParams({
     client_id: process.env.GITHUB_CLIENT_ID,
@@ -287,24 +310,34 @@ export const githubCallback = async (req, res) => {
       }
     }
 
-    const sessionId = crypto.randomUUID();
-    const redisKey = `session:${sessionId}`;
+    // Safe Redis session creation for GitHub
+    const sessionResult = await safeRedis(async (redisClient) => {
+      const sessionId = crypto.randomUUID();
+      const redisKey = `session:${sessionId}`;
 
-    await redisClient.json.set(redisKey, "$", {
-      userId: user._id.toString(),
-      rootDirId: user.rootDirId.toString(),
+      await redisClient.json.set(redisKey, "$", {
+        userId: user._id.toString(),
+        rootDirId: user.rootDirId.toString(),
+      });
+
+      const sessionExpiryTime = 60 * 1000 * 60 * 24 * 7;
+      await redisClient.expire(redisKey, sessionExpiryTime / 1000);
+
+      return { sessionId, sessionExpiryTime };
     });
 
-    const sessionExpiryTime = 60 * 1000 * 60 * 24 * 7;
-    await redisClient.expire(redisKey, sessionExpiryTime / 1000);
-
-    res.cookie("sid", sessionId, {
-      httpOnly: true,
-      signed: true,
-      sameSite: "none",
-      secure: true,
-      maxAge: sessionExpiryTime,
-    });
+    if (sessionResult) {
+      const { sessionId, sessionExpiryTime } = sessionResult;
+      res.cookie("sid", sessionId, {
+        httpOnly: true,
+        signed: true,
+        sameSite: "none",
+        secure: true,
+        maxAge: sessionExpiryTime,
+      });
+    } else {
+      console.warn("GitHub: Session not created due to Redis unavailability");
+    }
 
     res.redirect("https://www.palomacoding.xyz/");
   } catch (err) {
