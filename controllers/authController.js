@@ -5,10 +5,12 @@ import User from "../models/userModel.js";
 import Directory from "../models/directoryModel.js";
 import { verifyIdTokenTakeAnyName } from "../services/googleAuthService.js";
 import { sendOtpService } from "../services/sendOtpService.js";
-import redisClient from "../config/redis.js";
+// import redisClient from "../config/redis.js";
+import getRedisClient from "../config/redis.js";
 import { otpSchema } from "../validators/authSchema.js";
 import fetch from "node-fetch";
 
+const redisClient = getRedisClient();
 export const sendOtp = async (req, res, next) => {
   const { email } = req.body;
   const resData = await sendOtpService(email);

@@ -1,7 +1,19 @@
 import { Resend } from "resend";
 import OTP from "../models/otpModel.js";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Don't initialize Resend immediately - make it lazy
+let resendInstance = null;
+
+const getResend = () => {
+  if (!resendInstance) {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) {
+      throw new Error("RESEND_API_KEY is not set in environment variables");
+    }
+    resendInstance = new Resend(apiKey);
+  }
+  return resendInstance;
+};
 
 export async function sendOtpService(email) {
   try {
@@ -14,7 +26,7 @@ export async function sendOtpService(email) {
     await OTP.findOneAndUpdate(
       { email },
       { otp, createdAt: new Date(), expiresAt },
-      { upsert: true, new: true } // up = update, sert = insert, new: true = returns updated value.
+      { upsert: true, new: true }
     );
 
     const html = `
@@ -27,8 +39,10 @@ export async function sendOtpService(email) {
       </div>
     `;
 
+    // Initialize Resend only when needed
+    const resend = getResend();
     const sendResult = await resend.emails.send({
-      from: "Storage App <onboarding@resend.dev>", // ← THIS BYPASSES DOMAIN BLOCK
+      from: "Storage App <onboarding@resend.dev>",
       to: email,
       subject: "Your Storage App Verification Code",
       html,
