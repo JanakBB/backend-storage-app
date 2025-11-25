@@ -12,6 +12,18 @@ import checkAuth from "./middlewares/authMiddleware.js";
 import { connectDB } from "./config/db.js";
 import { initializeRedis } from "./config/redis.js";
 
+// ADD THESE LINES FOR DEBUGGING:
+console.log("🔍 DEBUG - AWS Credentials Check:");
+console.log(
+  "AWS_ACCESS_KEY_ID:",
+  process.env.AWS_ACCESS_KEY_ID ? "✅ Loaded" : "❌ Missing"
+);
+console.log(
+  "AWS_SECRET_ACCESS_KEY:",
+  process.env.AWS_SECRET_ACCESS_KEY ? "✅ Loaded" : "❌ Missing"
+);
+console.log("AWS_REGION:", process.env.AWS_REGION || "❌ Missing");
+
 // Debug: Check if environment variables are loaded
 console.log("🔍 Environment check:");
 console.log("DB_URL:", process.env.DB_URL ? "✅ Loaded" : "❌ Missing");
