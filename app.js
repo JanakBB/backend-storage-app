@@ -13,23 +13,21 @@ await connectDB();
 const PORT = process.env.PORT || 4000;
 
 const app = express();
-app.use(cookieParser(process.env.SESSION_SECRET));
-app.use(express.json());
 
+// CORS middleware - PLACE THIS AT THE VERY TOP
 const whitelist = [
-  process.env.CLIENT_URL_1,
-  process.env.CLIENT_URL_2,
-  "https://accounts.google.com",
   "https://palomacoding.xyz",
   "https://www.palomacoding.xyz",
+  "https://accounts.google.com",
 ];
 
-// Enhanced CORS configuration
 app.use(
   cors({
     origin: function (origin, callback) {
-      // Allow requests with no origin (mobile apps, postman) OR origin in whitelist
-      if (!origin || whitelist.includes(origin)) {
+      // Allow requests with no origin (like mobile apps or Postman)
+      if (!origin) return callback(null, true);
+
+      if (whitelist.includes(origin)) {
         callback(null, true);
       } else {
         console.log("CORS blocked for origin:", origin);
@@ -42,8 +40,22 @@ app.use(
   })
 );
 
-// Handle preflight requests explicitly
+// Handle preflight requests for all routes
 app.options("*", cors());
+
+app.use(cookieParser(process.env.SESSION_SECRET));
+app.use(express.json());
+
+// Test route to check if CORS is working
+app.get("/health", (req, res) => {
+  res.header("Access-Control-Allow-Origin", "https://palomacoding.xyz");
+  res.header("Access-Control-Allow-Credentials", "true");
+  res.json({
+    message: "Server is running",
+    timestamp: new Date().toISOString(),
+    cors: "enabled",
+  });
+});
 
 app.get("/", (req, res) => {
   res.json({ message: "Hello from StorageApp" });
@@ -54,17 +66,24 @@ app.use("/file", checkAuth, fileRoutes);
 app.use("/", userRoutes);
 app.use("/auth", authRoutes);
 
+// Error handling middleware
 app.use((err, req, res, next) => {
-  console.error("Error:", err.message);
+  console.error("Server Error:", err.message);
 
-  // Handle CORS errors gracefully
   if (err.message === "Not allowed by CORS") {
-    return res.status(403).json({ error: "CORS policy blocked the request" });
+    return res.status(403).json({
+      error: "CORS policy blocked the request",
+      allowedOrigins: whitelist,
+    });
   }
 
-  res.status(err.status || 500).json({ error: "Something went wrong!" });
+  res.status(err.status || 500).json({
+    error: "Internal server error",
+    message: err.message,
+  });
 });
 
 app.listen(PORT, () => {
   console.log(`Server Started on port ${PORT}`);
+  console.log(`CORS enabled for:`, whitelist);
 });
