@@ -1,3 +1,6 @@
+import { config } from "dotenv";
+config(); // ← This loads the .env file
+
 import express from "express";
 import cors from "cors";
 import cookieParser from "cookie-parser";
@@ -9,10 +12,21 @@ import checkAuth from "./middlewares/authMiddleware.js";
 import { connectDB } from "./config/db.js";
 import { initializeRedis } from "./config/redis.js";
 
+// Debug: Check if environment variables are loaded
+console.log("🔍 Environment check:");
+console.log("DB_URL:", process.env.DB_URL ? "✅ Loaded" : "❌ Missing");
+console.log("PORT:", process.env.PORT);
+console.log("REDIS_HOST:", process.env.REDIS_HOST ? "✅ Loaded" : "❌ Missing");
+
 // Initialize with error handling
 async function initializeApp() {
   try {
     console.log("🔄 Starting server initialization...");
+
+    // Verify critical environment variables
+    if (!process.env.DB_URL) {
+      throw new Error("DB_URL environment variable is not set");
+    }
 
     // 1. Connect to MongoDB first
     console.log("🔄 Connecting to MongoDB...");
@@ -69,7 +83,6 @@ async function initializeApp() {
         status: "OK",
         message: "Backend is running",
         timestamp: new Date().toISOString(),
-        redis: redisClient ? "connected" : "disconnected",
       });
     });
 
