@@ -17,10 +17,18 @@ app.use(cookieParser(process.env.SESSION_SECRET));
 app.use(express.json());
 
 const whitelist = [
-  process.env.CLIENT_URL_1, // https://www.palomacoding.xyz
-  process.env.CLIENT_URL_2, // https://palomacoding.xyz
+  process.env.CLIENT_URL_1,
+  process.env.CLIENT_URL_2,
   "https://accounts.google.com", // ← Critical for Google login
 ];
+
+// Only for development - remove in production
+app.use(
+  cors({
+    origin: true, // Allow all origins in development
+    credentials: true,
+  })
+);
 
 app.use(
   cors({
