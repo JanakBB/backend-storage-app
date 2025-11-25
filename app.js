@@ -53,18 +53,22 @@ async function initializeApp() {
     app.use(express.json());
 
     // CORS configuration
+    // Update your whitelist to include your API domain
     const whitelist = [
       "https://palomacoding.xyz",
       "https://www.palomacoding.xyz",
-      "https://api.palomacoding.xyz", // ADD THIS LINE
-      "http://localhost:5173", // ADD THIS LINE for development
+      "https://api.palomacoding.xyz", // Add your API domain
       "https://accounts.google.com",
+      "http://localhost:5173", // For development
     ];
 
     app.use(
       cors({
         origin: function (origin, callback) {
-          if (!origin || whitelist.includes(origin)) {
+          // Allow requests with no origin (like mobile apps or curl requests)
+          if (!origin) return callback(null, true);
+
+          if (whitelist.includes(origin)) {
             callback(null, true);
           } else {
             console.log("CORS blocked for origin:", origin);
@@ -72,10 +76,34 @@ async function initializeApp() {
           }
         },
         credentials: true,
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
         allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
       })
     );
+
+    // const whitelist = [
+    //   "https://palomacoding.xyz",
+    //   "https://www.palomacoding.xyz",
+    //   "https://api.palomacoding.xyz", // ADD THIS LINE
+    //   "http://localhost:5173", // ADD THIS LINE for development
+    //   "https://accounts.google.com",
+    // ];
+
+    // app.use(
+    //   cors({
+    //     origin: function (origin, callback) {
+    //       if (!origin || whitelist.includes(origin)) {
+    //         callback(null, true);
+    //       } else {
+    //         console.log("CORS blocked for origin:", origin);
+    //         callback(new Error("Not allowed by CORS"));
+    //       }
+    //     },
+    //     credentials: true,
+    //     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    //     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+    //   })
+    // );
 
     app.options("*", cors());
 

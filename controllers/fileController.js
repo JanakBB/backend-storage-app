@@ -102,7 +102,7 @@ export const uploadInitiate = async (req, res, next) => {
 
     // Check if parent directory exists
     if (!parentDirData) {
-      return res.status(404).json({ error: "Parent directory not found!" });
+      return res.status(404).json({ error: "Parent directory not found!" }); // ADD RETURN
     }
 
     const filename = req.body.name || "untitled";
@@ -115,12 +115,12 @@ export const uploadInitiate = async (req, res, next) => {
 
     if (filesize > remainingSpace) {
       console.log("File too large");
-      return res.status(507).json({ error: "Insufficient Storage" });
+      return res.status(507).json({ error: "Insufficient Storage" }); // ADD RETURN
     }
 
     const extension = path.extname(filename);
 
-    const insertedFile = await File.insertOne({
+    const insertedFile = await File.create({
       extension,
       name: filename,
       size: filesize,
@@ -130,11 +130,11 @@ export const uploadInitiate = async (req, res, next) => {
     });
 
     const uploadSignedUrl = await createUploadSignedUrl({
-      key: `${insertedFile.id}${extension}`,
+      key: `${insertedFile._id}${extension}`,
       contentType: req.body.contentType,
     });
-    res.json({ uploadSignedUrl, fileId: insertedFile.id });
-    res.json({ uploadSignedUrl, fileId: insertedFile.id });
+
+    return res.json({ uploadSignedUrl, fileId: insertedFile._id }); // ADD RETURN
   } catch (err) {
     console.log(err);
     next(err);
@@ -144,23 +144,23 @@ export const uploadInitiate = async (req, res, next) => {
 export const uploadComplete = async (req, res, next) => {
   const file = await File.findById(req.body.fileId);
   if (!file) {
-    return res.status(404).json({ error: "File not found in our records" });
+    return res.status(404).json({ error: "File not found in our records" }); // ADD RETURN
   }
 
   try {
     const fileData = await getS3FileMetaData(`${file.id}${file.extension}`);
     if (fileData.ContentLength !== file.size) {
       await file.deleteOne();
-      return res.status(400).json({ error: "File size does not match!" });
+      return res.status(400).json({ error: "File size does not match!" }); // ADD RETURN
     }
     file.isUploading = false;
     await file.save();
     await updateDirectoriesSize(file.parentDirId, file.size);
-    res.json({ message: "Upload completed!" });
+    return res.json({ message: "Upload completed!" }); // ADD RETURN
   } catch (err) {
     await file.deleteOne();
     return res
       .status(404)
-      .json({ error: "File could not be uploaded properly!" });
+      .json({ error: "File could not be uploaded properly!" }); // ADD RETURN
   }
 };
