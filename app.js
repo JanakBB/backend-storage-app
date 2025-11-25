@@ -57,12 +57,33 @@ async function initializeApp() {
       cors({
         origin: true, // This allows ALL origins
         credentials: true,
-        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-        allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"], // Make sure PATCH is here
+        allowedHeaders: [
+          "Content-Type",
+          "Authorization",
+          "X-Requested-With",
+          "x-requested-with",
+        ],
       })
     );
 
-    console.log("🔧 TEMPORARY: CORS set to allow ALL origins");
+    // ADD THIS - Handle preflight requests explicitly
+    app.options(
+      "*",
+      cors({
+        origin: true,
+        credentials: true,
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        allowedHeaders: [
+          "Content-Type",
+          "Authorization",
+          "X-Requested-With",
+          "x-requested-with",
+        ],
+      })
+    );
+
+    console.log("🔧 TEMPORARY: CORS set to allow ALL origins and ALL methods");
 
     // // CORS configuration
     // // Update your whitelist to include your API domain
