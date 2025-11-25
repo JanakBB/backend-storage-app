@@ -8,15 +8,19 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
-const s3Client = new S3Client({
-  region: process.env.AWS_REGION || "us-east-1",
-  credentials: {
-    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
-    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
-  },
-});
+// Create a function to get the S3 client (lazy initialization)
+const getS3Client = () => {
+  return new S3Client({
+    region: process.env.AWS_REGION || "ap-south-1",
+    credentials: {
+      accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+      secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+    },
+  });
+};
 
 export const createUploadSignedUrl = async ({ key, contentType }) => {
+  const s3Client = getS3Client();
   const command = new PutObjectCommand({
     Bucket: "palomacoding",
     Key: key,
@@ -36,6 +40,7 @@ export const createGetSignedUrl = async ({
   download = false,
   filename,
 }) => {
+  const s3Client = getS3Client();
   const command = new GetObjectCommand({
     Bucket: "palomacoding",
     Key: key,
@@ -50,6 +55,7 @@ export const createGetSignedUrl = async ({
 };
 
 export const getS3FileMetaData = async (key) => {
+  const s3Client = getS3Client();
   const command = new HeadObjectCommand({
     Bucket: "palomacoding",
     Key: key,
@@ -58,6 +64,7 @@ export const getS3FileMetaData = async (key) => {
 };
 
 export const deleteS3File = async (key) => {
+  const s3Client = getS3Client();
   const command = new DeleteObjectCommand({
     Bucket: "palomacoding",
     Key: key,
@@ -66,11 +73,12 @@ export const deleteS3File = async (key) => {
 };
 
 export const deleteS3Files = async (keys) => {
+  const s3Client = getS3Client();
   const command = new DeleteObjectsCommand({
     Bucket: "palomacoding",
     Delete: {
       Objects: keys,
-      Quiet: false, // set true to skip individual delete responses
+      Quiet: false,
     },
   });
   return await s3Client.send(command);
