@@ -3,9 +3,25 @@ import User from "../models/userModel.js";
 import mongoose, { Types } from "mongoose";
 import Session from "../models/sessionModel.js";
 import OTP from "../models/otpModel.js";
-import redisClient from "../config/redis.js";
+import { getRedisClient } from "../config/redis.js"; // ← FIXED IMPORT
 import { z } from "zod/v4";
 import { loginSchema, registerSchema } from "../validators/authSchema.js";
+import crypto from "crypto"; // ← ADD MISSING IMPORT
+
+// Helper function for safe Redis operations
+const safeRedis = async (operation) => {
+  const redisClient = getRedisClient();
+  if (!redisClient) {
+    console.warn("Redis client not available");
+    return null;
+  }
+  try {
+    return await operation(redisClient);
+  } catch (error) {
+    console.warn("Redis operation failed:", error.message);
+    return null;
+  }
+};
 
 export const register = async (req, res, next) => {
   const { success, data, error } = registerSchema.safeParse(req.body);
@@ -29,34 +45,43 @@ export const register = async (req, res, next) => {
     const rootDirId = new Types.ObjectId();
     const userId = new Types.ObjectId();
 
-    mongooseSession.startTransaction();
+    await mongooseSession.startTransaction();
 
-    await Directory.insertOne(
-      {
-        _id: rootDirId,
-        name: `root-${email}`,
-        parentDirId: null,
-        userId,
-      },
-      { mongooseSession }
+    // FIXED: Use create() instead of insertOne()
+    await Directory.create(
+      [
+        {
+          _id: rootDirId,
+          name: `root-${email}`,
+          parentDirId: null,
+          userId,
+          size: 0,
+        },
+      ],
+      { session: mongooseSession }
     );
 
-    await User.insertOne(
-      {
-        _id: userId,
-        name,
-        email,
-        password,
-        rootDirId,
-      },
-      { mongooseSession }
+    // FIXED: Use create() instead of insertOne()
+    await User.create(
+      [
+        {
+          _id: userId,
+          name,
+          email,
+          password,
+          rootDirId,
+          maxStorageInBytes: 15 * 1024 ** 3,
+          role: "User",
+        },
+      ],
+      { session: mongooseSession }
     );
 
-    mongooseSession.commitTransaction();
+    await mongooseSession.commitTransaction();
 
     res.status(201).json({ message: "User Registered" });
   } catch (err) {
-    mongooseSession.abortTransaction();
+    await mongooseSession.abortTransaction();
     console.log(err);
     if (err.code === 121) {
       res
@@ -73,6 +98,8 @@ export const register = async (req, res, next) => {
     } else {
       next(err);
     }
+  } finally {
+    mongooseSession.endSession();
   }
 };
 
@@ -96,36 +123,52 @@ export const login = async (req, res, next) => {
     return res.status(404).json({ error: "Invalid Credentials" });
   }
 
-  const allSessions = await redisClient.ft.search(
-    "userIdIdx",
-    `@userId:{${user.id}}`,
-    {
-      RETURN: [],
+  // Safe Redis session cleanup
+  await safeRedis(async (redisClient) => {
+    try {
+      const allSessions = await redisClient.ft.search(
+        "userIdIdx",
+        `@userId:{${user.id}}`,
+        { RETURN: [] }
+      );
+
+      if (allSessions.total >= 2) {
+        await redisClient.del(allSessions.documents[0].id);
+      }
+    } catch (error) {
+      console.warn("Session cleanup failed:", error.message);
     }
-  );
+  });
 
-  if (allSessions.total >= 2) {
-    await redisClient.del(allSessions.documents[0].id);
+  // Create new session with safe Redis
+  const sessionResult = await safeRedis(async (redisClient) => {
+    const sessionId = crypto.randomUUID();
+    const redisKey = `session:${sessionId}`;
+
+    await redisClient.json.set(redisKey, "$", {
+      userId: user._id.toString(),
+      rootDirId: user.rootDirId.toString(),
+    });
+
+    const sessionExpiryTime = 60 * 1000 * 60 * 24 * 7;
+    await redisClient.expire(redisKey, sessionExpiryTime / 1000);
+
+    return { sessionId, sessionExpiryTime };
+  });
+
+  if (sessionResult) {
+    const { sessionId, sessionExpiryTime } = sessionResult;
+    res.cookie("sid", sessionId, {
+      httpOnly: true,
+      signed: true,
+      sameSite: "none",
+      secure: true,
+      maxAge: sessionExpiryTime,
+    });
+    res.json({ message: "logged in" });
+  } else {
+    res.status(500).json({ error: "Failed to create session" });
   }
-
-  const sessionId = crypto.randomUUID();
-  const redisKey = `session:${sessionId}`;
-  await redisClient.json.set(redisKey, "$", {
-    userId: user._id,
-    rootDirId: user.rootDirId,
-  });
-
-  const sessionExpiryTime = 60 * 1000 * 60 * 24 * 7;
-  await redisClient.expire(redisKey, sessionExpiryTime / 1000);
-
-  res.cookie("sid", sessionId, {
-    httpOnly: true,
-    signed: true,
-    sameSite: "none",
-    secure: true,
-    maxAge: sessionExpiryTime,
-  });
-  res.json({ message: "logged in" });
 };
 
 export const getAllUsers = async (req, res) => {
@@ -146,8 +189,6 @@ export const getAllUsers = async (req, res) => {
 export const getCurrentUser = async (req, res) => {
   const user = await User.findById(req.user._id).lean();
 
-
-  
   // Check if user exists
   if (!user) {
     return res.status(404).json({ error: "User not found" });
@@ -175,9 +216,19 @@ export const getCurrentUser = async (req, res) => {
 };
 
 export const logout = async (req, res) => {
-  const { sid } = req.signedCookies;
-  await redisClient.del(`session:${sid}`);
-  res.clearCookie("sid");
+  const sid = req.signedCookies?.sid;
+
+  if (sid) {
+    await safeRedis(async (redisClient) => {
+      try {
+        await redisClient.del(`session:${sid}`);
+      } catch (error) {
+        console.warn("Failed to delete session from Redis:", error.message);
+      }
+    });
+    res.clearCookie("sid");
+  }
+
   res.status(204).end();
 };
 
@@ -191,16 +242,33 @@ export const logoutById = async (req, res, next) => {
 };
 
 export const logoutAll = async (req, res) => {
-  const { sid } = req.signedCookies;
-  const session = await redisClient.json.get(`session:${sid}`);
-  const allSessions = await redisClient.ft.search(
-    "userIdIdx",
-    `@userId:{${session.userId}}`,
-    {
-      RETURN: [],
+  const sid = req.signedCookies?.sid;
+
+  if (!sid) {
+    return res.status(204).end();
+  }
+
+  await safeRedis(async (redisClient) => {
+    try {
+      const session = await redisClient.json.get(`session:${sid}`);
+      if (session && session.userId) {
+        const allSessions = await redisClient.ft.search(
+          "userIdIdx",
+          `@userId:{${session.userId}}`,
+          { RETURN: [] }
+        );
+
+        if (allSessions.documents && allSessions.documents.length > 0) {
+          const sessionKeys = allSessions.documents.map((doc) => doc.id);
+          await Promise.all(sessionKeys.map((key) => redisClient.del(key)));
+        }
+      }
+    } catch (error) {
+      console.warn("Logout all failed:", error.message);
     }
-  );
-  await redisClient.del(allSessions.documents.map(({ id }) => id));
+  });
+
+  res.clearCookie("sid");
   res.status(204).end();
 };
 
