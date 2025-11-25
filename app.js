@@ -64,48 +64,38 @@ async function initializeApp() {
     app.use(cookieParser(process.env.SESSION_SECRET));
     app.use(express.json());
 
-    // SIMPLE CORS - This usually fixes all issues
+    // CORS Configuration
+    const whitelist = [
+      "https://palomacoding.xyz",
+      "https://www.palomacoding.xyz",
+      "https://api.palomacoding.xyz", // API domain
+      "http://localhost:5173", // Vite dev server
+      "https://accounts.google.com", // Google OAuth
+    ];
+
     app.use(
       cors({
-        origin: true,
+        origin: function (origin, callback) {
+          // Allow requests with no origin (like mobile apps or curl requests)
+          if (!origin) return callback(null, true);
+
+          if (whitelist.includes(origin)) {
+            callback(null, true);
+          } else {
+            console.log("CORS blocked for origin:", origin);
+            callback(new Error("Not allowed by CORS"));
+          }
+        },
         credentials: true,
+        methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+        allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
       })
     );
 
-    app.options("*", cors()); // Handle preflight for all routes
-
-    console.log("🔧 CORS set to allow ALL origins with simple configuration");
-
-    // // CORS configuration
-    // // Update your whitelist to include your API domain
-    // const whitelist = [
-    //   "https://palomacoding.xyz",
-    //   "https://www.palomacoding.xyz",
-    //   "https://api.palomacoding.xyz", // Add your API domain
-    //   "https://accounts.google.com",
-    //   "http://localhost:5173", // For development
-    // ];
-
-    // app.use(
-    //   cors({
-    //     origin: function (origin, callback) {
-    //       // Allow requests with no origin (like mobile apps or curl requests)
-    //       if (!origin) return callback(null, true);
-
-    //       if (whitelist.includes(origin)) {
-    //         callback(null, true);
-    //       } else {
-    //         console.log("CORS blocked for origin:", origin);
-    //         callback(new Error("Not allowed by CORS"));
-    //       }
-    //     },
-    //     credentials: true,
-    //     methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
-    //     allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
-    //   })
-    // );
-
+    // Handle preflight requests for all routes
     app.options("*", cors());
+
+    console.log("✅ CORS enabled for:", whitelist);
 
     // Health check endpoint
     app.get("/health", (req, res) => {
@@ -141,7 +131,7 @@ async function initializeApp() {
 
     app.listen(PORT, () => {
       console.log(`🚀 Server Started on port ${PORT}`);
-      // console.log(`✅ CORS enabled for:`, whitelist);
+      console.log(`✅ CORS enabled for production domains`);
       console.log(`🌐 Health check: https://api.palomacoding.xyz/health`);
     });
   } catch (error) {
