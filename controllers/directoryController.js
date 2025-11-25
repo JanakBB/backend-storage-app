@@ -41,7 +41,7 @@ export const createDirectory = async (req, res, next) => {
         .status(404)
         .json({ message: "Parent Directory Does not exist!" });
 
-    await Directory.insertOne({
+    await Directory.create({
       name: dirname,
       parentDirId,
       userId: user._id,

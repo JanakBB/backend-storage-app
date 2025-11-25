@@ -56,6 +56,8 @@ async function initializeApp() {
     const whitelist = [
       "https://palomacoding.xyz",
       "https://www.palomacoding.xyz",
+      "https://api.palomacoding.xyz", // ADD THIS LINE
+      "http://localhost:5173", // ADD THIS LINE for development
       "https://accounts.google.com",
     ];
 
