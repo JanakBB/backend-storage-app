@@ -195,7 +195,8 @@ export const githubLoginStart = (req, res) => {
 export const githubCallback = async (req, res) => {
   const { code, state } = req.query;
   const body = req.query.body;
-  console.log({body})
+  console.log({ body });
+  console.log(code);
 
   if (!code) {
     return res.redirect(
@@ -222,7 +223,7 @@ export const githubCallback = async (req, res) => {
     );
 
     const tokenData = await tokenResponse.json();
-    console.log({tokenData})
+    console.log({ tokenData });
     if (tokenData.error) {
       throw new Error(
         tokenData.error_description || "GitHub token exchange failed"
@@ -247,10 +248,10 @@ export const githubCallback = async (req, res) => {
 
     const githubUser = await profileRes.json();
     const emails = await emailRes.json();
-    console.log({githubUser, emails})
+    console.log({ githubUser, emails });
 
     const primaryEmailObj = emails.find((e) => e.primary && e.verified);
-    console.log({primaryEmailObj})
+    console.log({ primaryEmailObj });
     if (!primaryEmailObj) {
       return res.redirect(
         "https://www.palomacoding.xyz/login?error=no_verified_email"
