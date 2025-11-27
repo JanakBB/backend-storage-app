@@ -194,9 +194,7 @@ export const githubLoginStart = (req, res) => {
 
 export const githubCallback = async (req, res) => {
   const { code, state } = req.query;
-  const body = req.query.body;
-  console.log({ body });
-  console.log(code);
+  console.log({ code, state });
 
   if (!code) {
     return res.redirect(
