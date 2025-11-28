@@ -35,6 +35,10 @@ export const getFile = async (req, res) => {
 
     const isDownload = req.query.action === "download";
 
+    console.log(
+      `File request - ID: ${id}, Download: ${isDownload}, File: ${fileData.name}${fileData.extension}`
+    );
+
     const fileUrl = createCloudFrontGetSignedUrl({
       key: `${id}${fileData.extension}`,
       download: isDownload,
@@ -42,13 +46,16 @@ export const getFile = async (req, res) => {
     });
 
     console.log(
-      `Generated ${isDownload ? "DOWNLOAD" : "PREVIEW"} URL for: ${fileData.name}${fileData.extension}`
+      `Generated ${isDownload ? "DOWNLOAD" : "PREVIEW"} URL successfully`
     );
 
     return res.redirect(fileUrl);
   } catch (error) {
-    console.error("File access error:", error);
-    return res.status(500).json({ error: "Failed to access file" });
+    console.error("File access error:", error.message);
+    return res.status(500).json({
+      error: "Failed to access file",
+      details: error.message,
+    });
   }
 };
 
