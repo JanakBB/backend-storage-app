@@ -21,42 +21,32 @@ export async function updateDirectoriesSize(parentId, deltaSize) {
 
 export const getFile = async (req, res) => {
   const { id } = req.params;
+  const fileData = await File.findOne({
+    _id: id,
+    userId: req.user._id,
+  }).lean();
+  // Check if file exists
+  if (!fileData) {
+    return res.status(404).json({ error: "File not found!" });
+  }
 
-  try {
-    const fileData = await File.findOne({
-      _id: id,
-      userId: req.user._id,
-    }).lean();
-
-    // Check if file exists
-    if (!fileData) {
-      return res.status(404).json({ error: "File not found!" });
-    }
-
-    const isDownload = req.query.action === "download";
-
-    console.log(
-      `File request - ID: ${id}, Download: ${isDownload}, File: ${fileData.name}${fileData.extension}`
-    );
-
+  if (req.query.action === "download") {
     const fileUrl = createCloudFrontGetSignedUrl({
       key: `${id}${fileData.extension}`,
-      download: isDownload,
-      filename: `${fileData.name}${fileData.extension}`,
+      download: true,
+      filename: fileData.name,
     });
-
-    console.log(
-      `Generated ${isDownload ? "DOWNLOAD" : "PREVIEW"} URL successfully`
-    );
 
     return res.redirect(fileUrl);
-  } catch (error) {
-    console.error("File access error:", error.message);
-    return res.status(500).json({
-      error: "Failed to access file",
-      details: error.message,
-    });
   }
+
+  // Send file
+  const fileUrl = createCloudFrontGetSignedUrl({
+    key: `${id}${fileData.extension}`,
+    filename: fileData.name,
+  });
+
+  return res.redirect(fileUrl);
 };
 
 export const renameFile = async (req, res, next) => {
