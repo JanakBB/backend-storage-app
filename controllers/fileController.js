@@ -29,28 +29,30 @@ export async function updateDirectoriesSize(parentId, deltaSize) {
  */
 export const getFile = async (req, res) => {
   try {
-    const { id } = req.params;
+    console.log("REQ.USER:", req.user);
+    console.log("FILE ID PARAM:", req.params.id);
 
+    const { id } = req.params;
     const fileData = await File.findOne({
       _id: id,
-      userId: req.user._id,
+      userId: req.user?._id,
     }).lean();
 
-    if (!fileData) {
-      return res.status(404).json({ error: "File not found!" });
-    }
-
-    const isDownload = req.query.action === "download";
+    if (!fileData) return res.status(404).json({ error: "File not found" });
 
     const fileUrl = createCloudFrontGetSignedUrl({
       key: `${id}${fileData.extension}`,
-      download: isDownload,
       filename: fileData.name,
+      download: req.query.action === "download",
     });
 
+    console.log("FILE URL:", fileUrl);
     return res.redirect(fileUrl);
   } catch (err) {
-    return res.status(500).json({ error: "Internal server error" });
+    console.error("GET FILE ERROR:", err);
+    return res
+      .status(500)
+      .json({ error: "Internal server error", message: err.message });
   }
 };
 
