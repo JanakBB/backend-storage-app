@@ -8,6 +8,7 @@ import {
   deleteS3File,
   getS3FileMetaData,
 } from "../services/s3.js";
+import { createGetSignedUrl } from "../services/s3.js"; // Add this import
 
 /**
  * Updates directory size recursively
@@ -27,6 +28,7 @@ export async function updateDirectoriesSize(parentId, deltaSize) {
  * GET FILE
  * Handles preview vs download
  */
+
 export const getFile = async (req, res) => {
   try {
     console.log("REQ.USER:", req.user);
@@ -40,11 +42,27 @@ export const getFile = async (req, res) => {
 
     if (!fileData) return res.status(404).json({ error: "File not found" });
 
-    const fileUrl = createCloudFrontGetSignedUrl({
-      key: `${id}${fileData.extension}`,
-      filename: fileData.name,
-      download: req.query.action === "download",
-    });
+    // Try CloudFront first, fallback to S3 if it fails
+    let fileUrl;
+    try {
+      fileUrl = createCloudFrontGetSignedUrl({
+        key: `${id}${fileData.extension}`,
+        filename: fileData.name,
+        download: req.query.action === "download",
+      });
+      console.log("✅ Using CloudFront URL");
+    } catch (cloudfrontError) {
+      console.log(
+        "❌ CloudFront failed, falling back to S3:",
+        cloudfrontError.message
+      );
+      fileUrl = await createGetSignedUrl({
+        key: `${id}${fileData.extension}`,
+        filename: fileData.name,
+        download: req.query.action === "download",
+      });
+      console.log("✅ Using S3 URL");
+    }
 
     console.log("FILE URL:", fileUrl);
     return res.redirect(fileUrl);
