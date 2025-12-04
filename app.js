@@ -123,37 +123,55 @@ async function initializeApp() {
 
     console.log("✅ CORS enabled for:", whitelist);
 
+    // Replace your current /github-webhook endpoint with this:
     app.post("/github-webhook", (req, res) => {
-      const bashChildProcess = spawn("bash", [
-        "/home/ubuntu/deploy-frontend.sh",
-      ]);
-
-      // console.log(bashChildProcess.stdout);
-      // console.log(bashChildProcess.stderr);
-
-      bashChildProcess.stdout.on("data", (data) => {
-        process.stdout.write(data);
-      });
-      bashChildProcess.stderr.on("data", (data) => {
-        process.stderr.write(data);
+      // Send immediate response to GitHub (within 10 seconds timeout)
+      res.json({
+        message: "Deployment triggered",
+        timestamp: new Date().toISOString(),
       });
 
-      bashChildProcess.on("close", (code) => {
-        console.log(req.headers);
-        console.log(req.body);
-        res.json({ message: "OK" });
-        if (code === 0) {
-          console.log("Script executed successfully!");
-        } else {
-          console.log("Script failed!!");
-        }
-      });
+      // Run deployment asynchronously
+      setTimeout(() => {
+        console.log(
+          `[DEPLOY] 🌟 GitHub webhook received for: ${req.body.repository?.name}`
+        );
 
-      bashChildProcess.on("error", (err) => {
-        res.json({ message: "OK" });
-        console.log("Error on spawning the process!");
-        console.log(err);
-      });
+        const bashChildProcess = spawn("bash", [
+          "/home/ubuntu/deploy-frontend.sh",
+        ]);
+
+        let output = "";
+        let errorOutput = "";
+
+        bashChildProcess.stdout.on("data", (data) => {
+          const text = data.toString().trim();
+          output += text + "\n";
+          console.log(`[DEPLOY] ${text}`);
+        });
+
+        bashChildProcess.stderr.on("data", (data) => {
+          const text = data.toString().trim();
+          errorOutput += text + "\n";
+          console.error(`[DEPLOY ERROR] ${text}`);
+        });
+
+        bashChildProcess.on("close", (code) => {
+          if (code === 0) {
+            console.log(`[DEPLOY] ✅ Deployment completed successfully`);
+          } else {
+            console.error(`[DEPLOY] ❌ Deployment failed with code: ${code}`);
+            console.error(`[DEPLOY] Error output: ${errorOutput}`);
+          }
+          console.log(
+            `[DEPLOY] Total output length: ${output.length} characters`
+          );
+        });
+
+        bashChildProcess.on("error", (err) => {
+          console.error(`[DEPLOY] ❌ Error spawning process: ${err.message}`);
+        });
+      }, 100);
     });
 
     // Health check endpoint
