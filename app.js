@@ -12,14 +12,23 @@ import checkAuth from "./middlewares/authMiddleware.js";
 import { connectDB } from "./config/db.js";
 import { initializeRedis } from "./config/redis.js";
 
+import { spawn } from "child_process";
+
 // Add this after line 2 (config())
 console.log("🔍 CloudFront Config Check:");
-console.log("KEY_PAIR_ID:", process.env.KEY_PAIR_ID ? "✅ Loaded" : "❌ Missing");
-console.log("CLOUDFRONT_DISTRIBUTION_DOMAIN:", process.env.CLOUDFRONT_DISTRIBUTION_DOMAIN ? "✅ Loaded" : "❌ Missing");
+console.log(
+  "KEY_PAIR_ID:",
+  process.env.KEY_PAIR_ID ? "✅ Loaded" : "❌ Missing"
+);
+console.log(
+  "CLOUDFRONT_DISTRIBUTION_DOMAIN:",
+  process.env.CLOUDFRONT_DISTRIBUTION_DOMAIN ? "✅ Loaded" : "❌ Missing"
+);
 if (process.env.CLOUDFRONT_PRIVATE_KEY) {
   console.log("CLOUDFRONT_PRIVATE_KEY: ✅ Loaded");
   // Fix newline issue
-  process.env.CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY.replace(/\\n/g, '\n');
+  process.env.CLOUDFRONT_PRIVATE_KEY =
+    process.env.CLOUDFRONT_PRIVATE_KEY.replace(/\\n/g, "\n");
 } else {
   console.log("CLOUDFRONT_PRIVATE_KEY: ❌ Missing");
 }
@@ -113,6 +122,39 @@ async function initializeApp() {
     app.options("*", cors());
 
     console.log("✅ CORS enabled for:", whitelist);
+
+    app.post("/github-webhook", (req, res) => {
+      const bashChildProcess = spawn("bash", [
+        "/home/ubuntu/deploy-frontend.sh",
+      ]);
+
+      // console.log(bashChildProcess.stdout);
+      // console.log(bashChildProcess.stderr);
+
+      bashChildProcess.stdout.on("data", (data) => {
+        process.stdout.write(data);
+      });
+      bashChildProcess.stderr.on("data", (data) => {
+        process.stderr.write(data);
+      });
+
+      bashChildProcess.on("close", (code) => {
+        console.log(req.headers);
+        console.log(req.body);
+        res.json({ message: "OK" });
+        if (code === 0) {
+          console.log("Script executed successfully!");
+        } else {
+          console.log("Script failed!!");
+        }
+      });
+
+      bashChildProcess.on("error", (err) => {
+        res.json({ message: "OK" });
+        console.log("Error on spawning the process!");
+        console.log(err);
+      });
+    });
 
     // Health check endpoint
     app.get("/health", (req, res) => {
