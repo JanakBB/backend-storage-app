@@ -12,6 +12,18 @@ import checkAuth from "./middlewares/authMiddleware.js";
 import { connectDB } from "./config/db.js";
 import { initializeRedis } from "./config/redis.js";
 
+// Add this after line 2 (config())
+console.log("🔍 CloudFront Config Check:");
+console.log("KEY_PAIR_ID:", process.env.KEY_PAIR_ID ? "✅ Loaded" : "❌ Missing");
+console.log("CLOUDFRONT_DISTRIBUTION_DOMAIN:", process.env.CLOUDFRONT_DISTRIBUTION_DOMAIN ? "✅ Loaded" : "❌ Missing");
+if (process.env.CLOUDFRONT_PRIVATE_KEY) {
+  console.log("CLOUDFRONT_PRIVATE_KEY: ✅ Loaded");
+  // Fix newline issue
+  process.env.CLOUDFRONT_PRIVATE_KEY = process.env.CLOUDFRONT_PRIVATE_KEY.replace(/\\n/g, '\n');
+} else {
+  console.log("CLOUDFRONT_PRIVATE_KEY: ❌ Missing");
+}
+
 // ADD THESE LINES FOR DEBUGGING:
 console.log("🔍 DEBUG - AWS Credentials Check:");
 console.log(

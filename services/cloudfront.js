@@ -1,64 +1,75 @@
+// Load environment variables FIRST
+import { config } from "dotenv";
+config();
+
 import { getSignedUrl } from "@aws-sdk/cloudfront-signer";
 
-// CloudFront configuration - FIXED VARIABLE NAMES
-const keyPairId = process.env.KEY_PAIR_ID; // Changed from CLOUDFRONT_KEY_PAIR_ID
-const distributionDomain = (
-  process.env.CLOUDFRONT_DISTRIBUTION_DOMAIN || "d22k4cxru6qx1y.cloudfront.net"
-)
-  .replace(/^https?:\/\//, "")
-  .replace(/\/$/, "");
+// Don't check immediately - variables might not be loaded yet
+let keyPairId, distributionDomain, privateKey;
+let configChecked = false;
 
-// Read private key from .env
-let privateKey;
-if (process.env.CLOUDFRONT_PRIVATE_KEY) {
-  // Remove quotes and fix newlines
-  privateKey = process.env.CLOUDFRONT_PRIVATE_KEY.replace(/^'|'$/g, "") // Remove single quotes
-    .replace(/\\n/g, "\n"); // Convert \n to actual newlines
-}
+const checkAndLoadConfig = () => {
+  if (configChecked) return;
+  
+  keyPairId = process.env.KEY_PAIR_ID;
+  distributionDomain = (
+    process.env.CLOUDFRONT_DISTRIBUTION_DOMAIN || "d22k4cxru6qx1y.cloudfront.net"
+  )
+    .replace(/^https?:\/\//, "")
+    .replace(/\/$/, "");
 
-// Debug logging
-console.log("🔍 CloudFront Config Check:");
-console.log("KEY_PAIR_ID:", keyPairId ? "✅ Loaded" : "❌ Missing");
-console.log(
-  "CLOUDFRONT_DISTRIBUTION_DOMAIN:",
-  distributionDomain ? "✅ Loaded" : "❌ Missing"
-);
-console.log(
-  "CLOUDFRONT_PRIVATE_KEY:",
-  privateKey ? `✅ Loaded (${privateKey.length} chars)` : "❌ Missing"
-);
+  // Read private key from .env
+  if (process.env.CLOUDFRONT_PRIVATE_KEY) {
+    privateKey = process.env.CLOUDFRONT_PRIVATE_KEY
+      .replace(/^'|'$/g, "")
+      .replace(/\\n/g, "\n");
+  }
 
-if (!privateKey || !keyPairId) {
-  console.error("❌ CloudFront environment variables missing or invalid");
-  console.error("KEY_PAIR_ID:", keyPairId);
-  console.error("PRIVATE_KEY_LENGTH:", privateKey?.length);
-}
+  // Debug logging
+  console.log("🔍 CloudFront Config Check:");
+  console.log("KEY_PAIR_ID:", keyPairId ? "✅ Loaded" : "❌ Missing");
+  console.log(
+    "CLOUDFRONT_DISTRIBUTION_DOMAIN:",
+    distributionDomain ? "✅ Loaded" : "❌ Missing"
+  );
+  console.log(
+    "CLOUDFRONT_PRIVATE_KEY:",
+    privateKey ? `✅ Loaded (${privateKey.length} chars)` : "❌ Missing"
+  );
+
+  if (!privateKey || !keyPairId) {
+    console.error("❌ CloudFront environment variables missing or invalid");
+    console.error("KEY_PAIR_ID:", keyPairId);
+    console.error("PRIVATE_KEY_LENGTH:", privateKey?.length);
+  }
+  
+  configChecked = true;
+};
 
 /**
  * Generates a CloudFront signed URL for GET requests.
- * Supports inline preview and forced download.
  */
 export const createCloudFrontGetSignedUrl = ({
   key,
   download = false,
   filename,
 }) => {
+  // Check config when function is called (not at module load)
+  checkAndLoadConfig();
+  
   if (!key) throw new Error("Missing 'key' for CloudFront signed URL");
-  if (!filename)
-    throw new Error("Missing 'filename' for CloudFront signed URL");
+  if (!filename) throw new Error("Missing 'filename' for CloudFront signed URL");
   if (!privateKey || !keyPairId) {
     throw new Error("CloudFront keys not configured properly");
   }
 
   const safeFilename = filename.replace(/\s+/g, "_").replace(/"/g, "");
   const url = `https://${distributionDomain}/${key}`;
-  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24); // 24 hours
+  const expiresAt = new Date(Date.now() + 1000 * 60 * 60 * 24);
   const responseDisposition = `${download ? "attachment" : "inline"}; filename="${safeFilename}"`;
 
   try {
-    console.log(
-      `🔗 Generating ${download ? "DOWNLOAD" : "PREVIEW"} URL for: ${filename}`
-    );
+    console.log(`🔗 Generating ${download ? "DOWNLOAD" : "PREVIEW"} URL for: ${filename}`);
 
     const signedUrl = getSignedUrl({
       url: `${url}?response-content-disposition=${encodeURIComponent(responseDisposition)}`,
@@ -71,7 +82,6 @@ export const createCloudFrontGetSignedUrl = ({
     return signedUrl;
   } catch (err) {
     console.error("❌ CloudFront signed URL error:", err.message);
-    console.error("Error details:", err);
     throw new Error("Failed to generate CloudFront signed URL");
   }
 };
