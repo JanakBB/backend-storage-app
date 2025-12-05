@@ -13,6 +13,7 @@ import { connectDB } from "./config/db.js";
 import { initializeRedis } from "./config/redis.js";
 
 import { spawn } from "child_process";
+import crypto from "crypto";
 
 // Add this after line 2 (config())
 console.log("🔍 CloudFront Config Check:");
@@ -125,6 +126,24 @@ async function initializeApp() {
 
     // Replace your current /github-webhook endpoint with this:
     app.post("/github-webhook", (req, res) => {
+      // Verifying Github Webhook Signature
+      const givenSignature = req.headers["x-hub-signature-256"];
+      console.log(givenSignature);
+      if (!givenSignature) {
+        return res.status(304).json({ error: "Invalid Signature!" });
+      }
+
+      const calculatedSignature =
+        "sha256=" +
+        crypto
+          .createHmac("sha256", process.env.GITHUB_SECRET)
+          .update(JSON.stringify(req.body))
+          .digest("hex");
+      console.log(calculatedSignature);
+      if (givenSignature !== calculatedSignature) {
+        return res.status(304).json({ error: "Invalid Signature!" });
+      }
+
       // Send immediate response to GitHub (within 10 seconds timeout)
       res.json({
         message: "Deployment triggered",
