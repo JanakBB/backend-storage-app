@@ -150,7 +150,6 @@ async function initializeApp() {
       });
 
       // Run deployment asynchronously
-
       console.log(
         `[DEPLOY] 🌟 GitHub webhook received for: ${req.body.repository?.name}`
       );
