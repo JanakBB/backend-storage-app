@@ -150,53 +150,52 @@ async function initializeApp() {
       });
 
       // Run deployment asynchronously
-      setTimeout(() => {
-        console.log(
-          `[DEPLOY] 🌟 GitHub webhook received for: ${req.body.repository?.name}`
-        );
 
-        let repository;
-        if (req.body.repository.name === "storage-app-frontend") {
-          repository = "frontend";
+      console.log(
+        `[DEPLOY] 🌟 GitHub webhook received for: ${req.body.repository?.name}`
+      );
+
+      let repository;
+      if (req.body.repository.name === "storage-app-frontend") {
+        repository = "frontend";
+      } else {
+        repository = "backend";
+      }
+
+      const bashChildProcess = spawn("bash", [
+        `/home/ubuntu/deploy-${repository}.sh`,
+      ]);
+
+      let output = "";
+      let errorOutput = "";
+
+      bashChildProcess.stdout.on("data", (data) => {
+        const text = data.toString().trim();
+        output += text + "\n";
+        console.log(`[DEPLOY] ${text}`);
+      });
+
+      bashChildProcess.stderr.on("data", (data) => {
+        const text = data.toString().trim();
+        errorOutput += text + "\n";
+        console.error(`[DEPLOY ERROR] ${text}`);
+      });
+
+      bashChildProcess.on("close", (code) => {
+        if (code === 0) {
+          console.log(`[DEPLOY] ✅ Deployment completed successfully`);
         } else {
-          repository = "backend";
+          console.error(`[DEPLOY] ❌ Deployment failed with code: ${code}`);
+          console.error(`[DEPLOY] Error output: ${errorOutput}`);
         }
+        console.log(
+          `[DEPLOY] Total output length: ${output.length} characters`
+        );
+      });
 
-        const bashChildProcess = spawn("bash", [
-          `/home/ubuntu/deploy-${repository}.sh`,
-        ]);
-
-        let output = "";
-        let errorOutput = "";
-
-        bashChildProcess.stdout.on("data", (data) => {
-          const text = data.toString().trim();
-          output += text + "\n";
-          console.log(`[DEPLOY] ${text}`);
-        });
-
-        bashChildProcess.stderr.on("data", (data) => {
-          const text = data.toString().trim();
-          errorOutput += text + "\n";
-          console.error(`[DEPLOY ERROR] ${text}`);
-        });
-
-        bashChildProcess.on("close", (code) => {
-          if (code === 0) {
-            console.log(`[DEPLOY] ✅ Deployment completed successfully`);
-          } else {
-            console.error(`[DEPLOY] ❌ Deployment failed with code: ${code}`);
-            console.error(`[DEPLOY] Error output: ${errorOutput}`);
-          }
-          console.log(
-            `[DEPLOY] Total output length: ${output.length} characters`
-          );
-        });
-
-        bashChildProcess.on("error", (err) => {
-          console.error(`[DEPLOY] ❌ Error spawning process: ${err.message}`);
-        });
-      }, 100);
+      bashChildProcess.on("error", (err) => {
+        console.error(`[DEPLOY] ❌ Error spawning process: ${err.message}`);
+      });
     });
 
     // Health check endpoint
@@ -244,4 +243,3 @@ async function initializeApp() {
 
 // Start the app
 initializeApp();
-
