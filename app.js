@@ -245,4 +245,3 @@ async function initializeApp() {
 // Start the app
 initializeApp();
 
-www.palomacoding.xyz;
