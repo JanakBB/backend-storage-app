@@ -127,7 +127,6 @@ async function initializeApp() {
     app.post("/github-webhook", (req, res) => {
       // Verifying Github Webhook Signature
       const givenSignature = req.headers["x-hub-signature-256"];
-      console.log(givenSignature);
       if (!givenSignature) {
         return res.status(304).json({ error: "Invalid Signature!" });
       }
@@ -138,7 +137,6 @@ async function initializeApp() {
           .createHmac("sha256", process.env.GITHUB_SECRET)
           .update(JSON.stringify(req.body))
           .digest("hex");
-      console.log(calculatedSignature);
       if (givenSignature !== calculatedSignature) {
         return res.status(304).json({ error: "Invalid Signature!" });
       }
