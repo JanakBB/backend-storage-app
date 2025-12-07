@@ -121,7 +121,6 @@ async function initializeApp() {
 
     // Handle preflight requests for all routes
     app.options("*", cors());
-
     console.log("✅ CORS enabled for:", whitelist);
 
     // Replace your current /github-webhook endpoint with this:
@@ -156,8 +155,15 @@ async function initializeApp() {
           `[DEPLOY] 🌟 GitHub webhook received for: ${req.body.repository?.name}`
         );
 
+        let repository;
+        if (req.body.repository.name === "storage-app-frontend") {
+          repository = "frontend";
+        } else {
+          repository = "backend";
+        }
+
         const bashChildProcess = spawn("bash", [
-          "/home/ubuntu/deploy-frontend.sh",
+          `/home/ubuntu/deploy-${repository}.sh`,
         ]);
 
         let output = "";
@@ -238,3 +244,5 @@ async function initializeApp() {
 
 // Start the app
 initializeApp();
+
+www.palomacoding.xyz;
