@@ -205,7 +205,7 @@ async function initializeApp() {
     });
 
     app.get("/", (req, res) => {
-      res.json({ message: "Hello from our3 StorageApp" });
+      res.json({ message: "Hello from our4 StorageApp" });
     });
 
     // Routes
