@@ -22,40 +22,55 @@ jobs:
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
-      # Minimal fixes to your working version:
       # 2. Deploy to remote server
       - name: Deploy backend on EC2
         run: |
           ssh "${SSH_USER}@${SSH_HOST}" 'bash -s' << 'EOF'
             set -e
-
+            
             echo "🚀 Starting backend deployment..."
-
-            cd "$REMOTE_APP_DIR"  # Use variable instead of hardcoded path
-
+            
+            # First go to home directory to ensure we're in right place
+            cd ~
+            echo "📁 Home directory: $(pwd)"
+            
+            # Change to app directory
+            cd backend-storage-app
+            echo "📁 App directory: $(pwd)"
+            
+            # Verify we're in the right place
+            if [ ! -f "package.json" ]; then
+              echo "❌ ERROR: package.json not found! Wrong directory."
+              echo "Files in current directory:"
+              ls -la
+              exit 1
+            fi
+            
+            echo "✅ Found package.json - correct directory"
+            
             # Clean old logs
             echo "🧹 Cleaning logs..."
-            pm2 flush "$PM2_APP_NAME" 2>/dev/null || true  # Use variable
-
-            # Update code
+            pm2 flush storageApp 2>/dev/null || true
+            
+            # Update code - use simple git pull
             echo "📥 Pulling code..."
             git pull
-
-            # Install deps with correct flag
-            echo "📦 Installing backend dependencies (npm ci)..."
-            npm ci --no-audit --no-fund  # Fixed flag
-
+            
+            # Install dependencies
+            echo "📦 Installing backend dependencies..."
+            npm ci --no-audit --no-fund
+            
             # Restart app
             echo "🔄 Reloading app..."
-            pm2 reload "$PM2_APP_NAME"  # Use variable
-
+            pm2 reload storageApp
+            
             # Show status
             echo ""
             echo "✅ Deployment complete!"
             echo "📊 Status:"
-            pm2 list "$PM2_APP_NAME"  # Use variable
-
+            pm2 list storageApp
+            
             echo ""
             echo "📝 Recent logs:"
-            pm2 logs "$PM2_APP_NAME" --lines 5 --nostream 2>/dev/null || echo "No logs yet"
+            pm2 logs storageApp --lines 5 --nostream 2>/dev/null || echo "No logs yet"
           EOF
