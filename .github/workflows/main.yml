@@ -31,11 +31,11 @@ jobs:
 
             echo "🚀 Starting backend deployment..."
 
-            cd "$REMOTE_APP_DIR"
+            cd /home/ubuntu/backend-storage-app
 
             # Clean old logs
             echo "🧹 Cleaning logs..."
-            pm2 flush "$PM2_APP_NAME" 2>/dev/null || true
+            pm2 flush storageApp 2>/dev/null || true
 
             # Update code
             echo "📥 Pulling code..."
@@ -43,19 +43,19 @@ jobs:
 
             # Install deps
             echo "📦 Installing backend dependencies (npm ci)..."
-            npm ci --no-audit --no-fund
+            npm ci --no audit --no-fund
 
             # Restart app
             echo "🔄 Reloading app..."
-            pm2 reload "$PM2_APP_NAME"
+            pm2 reload storageApp
 
             # Show status
             echo ""
             echo "✅ Deployment complete!"
             echo "📊 Status:"
-            pm2 list "$PM2_APP_NAME"
+            pm2 list storageApp
 
             echo ""
             echo "📝 Recent logs:"
-            pm2 logs "$PM2_APP_NAME" --lines 5 --nostream 2>/dev/null || echo "No logs yet"
+            pm2 logs storageApp --lines 5 --nostream 2>/dev/null || echo "No logs yet"
           EOF
