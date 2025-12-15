@@ -29,33 +29,33 @@ jobs:
           ssh "${SSH_USER}@${SSH_HOST}" 'bash -s' << 'EOF'
             set -e
 
-          echo "🚀 Starting backend deployment..."
+            echo "🚀 Starting backend deployment..."
 
-          cd /home/ubuntu/backend-storage-app
+            cd "$REMOTE_APP_DIR"
 
-          # Clean old logs
-          echo "🧹 Cleaning logs..."
-          pm2 flush storageApp 2>/dev/null || true
+            # Clean old logs
+            echo "🧹 Cleaning logs..."
+            pm2 flush "$PM2_APP_NAME" 2>/dev/null || true
 
-          # Update code
-          echo "📥 Pulling code..."
-          git pull
+            # Update code
+            echo "📥 Pulling code..."
+            git pull
 
-          # Install deps
-          echo "📦 Installing backend dependencies (npm ci)..."
-          npm ci --no audit --no-fund
+            # Install deps
+            echo "📦 Installing backend dependencies (npm ci)..."
+            npm ci --no-audit --no-fund
 
-          # Restart app
-          echo "🔄 Reloading app..."
-          pm2 reload storageApp
+            # Restart app
+            echo "🔄 Reloading app..."
+            pm2 reload "$PM2_APP_NAME"
 
-          # Show status
-          echo ""
-          echo "✅ Deployment complete!"
-          echo "📊 Status:"
-          pm2 list storageApp
+            # Show status
+            echo ""
+            echo "✅ Deployment complete!"
+            echo "📊 Status:"
+            pm2 list "$PM2_APP_NAME"
 
-          echo ""
-          echo "📝 Recent logs:"
-          pm2 logs storageApp --lines 5 --nostream 2>/dev/null || echo "No logs yet
+            echo ""
+            echo "📝 Recent logs:"
+            pm2 logs "$PM2_APP_NAME" --lines 5 --nostream 2>/dev/null || echo "No logs yet"
           EOF
