@@ -169,7 +169,7 @@ async function initializeApp() {
       bashChildProcess.stdout.on("data", (data) => {
         const text = data.toString().trim();
         output += text + "\n";
-        console.log(`[DEPLOY] ${text}`);
+        console.log(`[DEPLOY] ${text}`); 
       });
 
       bashChildProcess.stderr.on("data", (data) => {
@@ -205,7 +205,7 @@ async function initializeApp() {
     });
 
     app.get("/", (req, res) => {
-      res.json({ message: "Hello from our4 StorageApp" });
+      res.json({ message: "Hello from our CI/CD StorageApp" });
     });
 
     // Routes

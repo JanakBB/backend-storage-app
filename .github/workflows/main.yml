@@ -1,0 +1,61 @@
+name: Deploy StorageApp Backend
+
+on: [push, workflow_dispatch]
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+
+    env:
+      SSH_HOST: 13.126.121.218
+      SSH_USER: ubuntu
+      REMOTE_APP_DIR: /home/ubuntu/backend-storage-app
+      PM2_APP_NAME: storageApp
+
+    steps:
+      # 1. Setup SSH key and known_hosts
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+
+          # Add server host key so SSH does not ask for confirmation
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+
+      # 2. Deploy to remote server
+      - name: Deploy backend on EC2
+        run: |
+          ssh "${SSH_USER}@${SSH_HOST}" 'bash -s' << 'EOF'
+            set -e
+
+          echo "🚀 Starting backend deployment..."
+
+          cd /home/ubuntu/backend-storage-app
+
+          # Clean old logs
+          echo "🧹 Cleaning logs..."
+          pm2 flush storageApp 2>/dev/null || true
+
+          # Update code
+          echo "📥 Pulling code..."
+          git pull
+
+          # Install deps
+          echo "📦 Installing backend dependencies (npm ci)..."
+          npm ci --no audit --no-fund
+
+          # Restart app
+          echo "🔄 Reloading app..."
+          pm2 reload storageApp
+
+          # Show status
+          echo ""
+          echo "✅ Deployment complete!"
+          echo "📊 Status:"
+          pm2 list storageApp
+
+          echo ""
+          echo "📝 Recent logs:"
+          pm2 logs storageApp --lines 5 --nostream 2>/dev/null || echo "No logs yet
+          EOF
