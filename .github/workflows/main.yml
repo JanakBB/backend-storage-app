@@ -16,46 +16,48 @@ jobs:
       # 1. Setup SSH key and known_hosts
       - name: Setup SSH
         run: |
+          set -e  # Exit on any error
           mkdir -p ~/.ssh
           echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
-
-          # Add server host key so SSH does not ask for confirmation
-          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
       # 2. Deploy to remote server
       - name: Deploy backend on EC2
         run: |
+          set -e  # Exit if SSH fails
           ssh "${SSH_USER}@${SSH_HOST}" 'bash -s' << 'EOF'
-            set -e
-
+            set -e  # Exit on any remote command failure
+            
             echo "🚀 Starting backend deployment..."
-
-            cd /home/ubuntu/backend-storage-app
-
-            # Clean old logs
+            
+            # Use environment variable instead of hardcoded path
+            cd "$REMOTE_APP_DIR"
+            
+            # Clean old logs (silent if fails)
             echo "🧹 Cleaning logs..."
-            pm2 flush storageApp 2>/dev/null || true
-
-            # Update code
+            pm2 flush "$PM2_APP_NAME" >/dev/null 2>&1 || true
+            
+            # Update code with branch specification
             echo "📥 Pulling code..."
-            git pull
-
-            # Install deps
-            echo "📦 Installing backend dependencies (npm ci)..."
-            npm ci --no audit --no-fund
-
-            # Restart app
+            git pull origin main
+            
+            # Install deps with correct flags and quiet mode
+            echo "📦 Installing backend dependencies..."
+            npm ci --no-audit --no-fund --silent
+            
+            # Restart app with update-env flag
             echo "🔄 Reloading app..."
-            pm2 reload storageApp
-
-            # Show status
+            pm2 reload "$PM2_APP_NAME" --update-env
+            
+            # Show status with minimal output
             echo ""
-            echo "✅ Deployment complete!"
-            echo "📊 Status:"
-            pm2 list storageApp
-
+            echo "✅ Deployment complete at \$(date)"
+            echo "📊 Current status:"
+            pm2 list "$PM2_APP_NAME" --silent || pm2 list
+            
+            # Show recent logs (cleaner output)
             echo ""
-            echo "📝 Recent logs:"
-            pm2 logs storageApp --lines 5 --nostream 2>/dev/null || echo "No logs yet"
+            echo "📝 Recent application logs:"
+            pm2 logs "$PM2_APP_NAME" --lines 3 --nostream --raw 2>/dev/null || echo "No recent logs available"
           EOF
